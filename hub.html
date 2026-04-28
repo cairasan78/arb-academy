@@ -353,32 +353,52 @@ function openDiana(){
   window.location.href = DIANA_HREF;
 }
 
-// ─── ТАБЛИЦА ЛИДЕРОВ (из localStorage, пока без бэкенда) ───
-function loadLeaderboard(){
-  const raw = localStorage.getItem('arb_scores');
-  if(!raw){ return; }
-  try{
-    const scores = JSON.parse(raw); // {nick: {cases: N, metrics: N, terms: N}}
-    const entries = Object.entries(scores)
-      .map(([nick, s]) => ({nick, ...s}))
-      .sort((a,b) => (b.cases||0)+(b.metrics||0)+(b.terms||0) - ((a.cases||0)+(a.metrics||0)+(a.terms||0)));
-    
-    if(!entries.length) return;
-    const body = document.getElementById('lb-body');
+// ─── ТАБЛИЦА ЛИДЕРОВ из Google таблицы ───
+async function loadLeaderboard(){
+  const body = document.getElementById('lb-body');
+  body.innerHTML = '<div class="lb-empty">Загружаем результаты…</div>';
+  try {
+    const r = await fetch('https://script.google.com/macros/s/AKfycbz6G13Xj4LbiIcH00fsgMVxk2_6lydeaeDAzVQypHSQE5lV33GdjMG3F-_5fLQrxChs/exec', {
+      method: 'POST',
+      body: JSON.stringify({secret: 'arb2024secret', action: 'get_leaderboard'})
+    });
+    const data = await r.json();
+    const rows = data.leaderboard || [];
+    if(!rows.length){
+      body.innerHTML = '<div class="lb-empty">Результаты появятся здесь после первых игр</div>';
+      return;
+    }
+
+    // Группируем по игроку: лучший результат по каждой игре
+    const players = {};
+    rows.forEach(row => {
+      if(!players[row.name]) players[row.name] = {};
+      players[row.name][row.game] = row.score;
+    });
+
+    // Сортируем по сумме очков
+    const sorted = Object.entries(players)
+      .map(([name, scores]) => ({ name, ...scores, total: (scores.case1||0)+(scores.metrics||0)+(scores.terms||0) }))
+      .sort((a,b) => b.total - a.total);
+
     body.innerHTML = '';
-    entries.forEach((e, i) => {
+    sorted.forEach((p, i) => {
+      const medal = i===0?'🥇':i===1?'🥈':i===2?'🥉':(i+1)+'.';
       const numClass = i===0?'gold':i===1?'silver':i===2?'bronze':'';
       const row = document.createElement('div');
       row.className = 'lb-row';
       row.innerHTML = `
-        <div class="lb-num ${numClass}">${i===0?'🥇':i===1?'🥈':i===2?'🥉':i+1}</div>
-        <div class="lb-nick">${e.nick}</div>
-        <div class="lb-val ${e.cases?'good':'empty'}">${e.cases||'—'}</div>
-        <div class="lb-val ${e.metrics!==undefined?'good':'empty'}">${e.metrics!==undefined?e.metrics+'%':'—'}</div>
-        <div class="lb-val ${e.terms!==undefined?'good':'empty'}">${e.terms!==undefined?e.terms+'%':'—'}</div>`;
+        <div class="lb-num ${numClass}">${medal}</div>
+        <div class="lb-nick">${p.name}</div>
+        <div class="lb-val ${p.case1!==undefined?'good':'empty'}">${p.case1!==undefined?p.case1+'%':'—'}</div>
+        <div class="lb-val ${p.metrics!==undefined?'good':'empty'}">${p.metrics!==undefined?p.metrics+'%':'—'}</div>
+        <div class="lb-val ${p.terms!==undefined?'good':'empty'}">${p.terms!==undefined?p.terms+'%':'—'}</div>`;
       body.appendChild(row);
     });
-  } catch(e){ console.error(e); }
+  } catch(e) {
+    body.innerHTML = '<div class="lb-empty">Не удалось загрузить результаты</div>';
+    console.error(e);
+  }
 }
 </script>
 </body>
