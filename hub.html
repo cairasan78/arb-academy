@@ -275,12 +275,13 @@ html,body{
   <div class="leaderboard">
     <div class="lb-title">Таблица лидеров</div>
     <div class="lb-table">
-      <div class="lb-head">
+      <div class="lb-head" style="grid-template-columns:28px 1fr 70px 90px 90px 90px">
         <div>#</div>
         <div>Игрок</div>
         <div style="text-align:center">Кейсы</div>
         <div style="text-align:center">Метрики</div>
         <div style="text-align:center">Термины</div>
+        <div style="text-align:center">Рекорд</div>
       </div>
       <div id="lb-body">
         <div class="lb-empty">Результаты появятся здесь после первых игр</div>
@@ -369,30 +370,52 @@ async function loadLeaderboard(){
       return;
     }
 
-    // Группируем по игроку: лучший результат по каждой игре
+    // Группируем по игроку
     const players = {};
     rows.forEach(row => {
       if(!players[row.name]) players[row.name] = {};
-      players[row.name][row.game] = row.score;
+      // Для метрик и терминов — лучший % и лучшее время
+      if(row.game === 'metrics' || row.game === 'terms'){
+        const key = row.game;
+        if(!players[row.name][key] || row.score > players[row.name][key].score){
+          players[row.name][key] = {score: row.score, time: row.time_sec};
+        }
+      } else {
+        players[row.name][row.game] = row.score;
+      }
     });
 
-    // Сортируем по сумме очков
+    // Лучшее время по метрикам и терминам (минимум среди 100%)
     const sorted = Object.entries(players)
-      .map(([name, scores]) => ({ name, ...scores, total: (scores.case1||0)+(scores.metrics||0)+(scores.terms||0) }))
-      .sort((a,b) => b.total - a.total);
+      .map(([name, s]) => {
+        const caseScore = s.case1 || 0;
+        const metricsScore = s.metrics ? s.metrics.score : 0;
+        const termsScore = s.terms ? s.terms.score : 0;
+        // Лучшее время — минимальное среди идеальных результатов
+        const times = [];
+        if(s.metrics && s.metrics.score === 100 && s.metrics.time) times.push(s.metrics.time);
+        if(s.terms && s.terms.score === 100 && s.terms.time) times.push(s.terms.time);
+        const bestTime = times.length ? Math.min(...times) : null;
+        return {name, caseScore, metricsScore, termsScore, bestTime,
+          total: caseScore + metricsScore + termsScore};
+      })
+      .sort((a,b) => b.total - a.total || (a.bestTime||9999) - (b.bestTime||9999));
 
     body.innerHTML = '';
     sorted.forEach((p, i) => {
       const medal = i===0?'🥇':i===1?'🥈':i===2?'🥉':(i+1)+'.';
       const numClass = i===0?'gold':i===1?'silver':i===2?'bronze':'';
+      const timeStr = p.bestTime ? Math.floor(p.bestTime/60)+':'+(p.bestTime%60).toString().padStart(2,'0') : '—';
       const row = document.createElement('div');
       row.className = 'lb-row';
+      row.style.gridTemplateColumns = '28px 1fr 70px 90px 90px 90px';
       row.innerHTML = `
         <div class="lb-num ${numClass}">${medal}</div>
         <div class="lb-nick">${p.name}</div>
-        <div class="lb-val ${p.case1!==undefined?'good':'empty'}">${p.case1!==undefined?p.case1+'%':'—'}</div>
-        <div class="lb-val ${p.metrics!==undefined?'good':'empty'}">${p.metrics!==undefined?p.metrics+'%':'—'}</div>
-        <div class="lb-val ${p.terms!==undefined?'good':'empty'}">${p.terms!==undefined?p.terms+'%':'—'}</div>`;
+        <div class="lb-val ${p.caseScore?'good':'empty'}">${p.caseScore||'—'}</div>
+        <div class="lb-val ${p.metricsScore?'good':'empty'}">${p.metricsScore?p.metricsScore+'%':'—'}</div>
+        <div class="lb-val ${p.termsScore?'good':'empty'}">${p.termsScore?p.termsScore+'%':'—'}</div>
+        <div class="lb-val ${p.bestTime?'good':'empty'}">${timeStr}</div>`;
       body.appendChild(row);
     });
   } catch(e) {
