@@ -71,49 +71,112 @@ async def handle_text(msg: Message):
     ]])
     await msg.answer(f"Отлично, {name}! Теперь можешь играть 👇", reply_markup=kb)
 
-# ── /allow @username ──
+# ── /allow ID или @username ──
 @dp.message(Command("allow"))
 async def cmd_allow(msg: Message):
     if msg.from_user.id not in ADMIN_IDS:
         return
     parts = msg.text.split()
     if len(parts) < 2:
-        await msg.answer("Использование: /allow @username")
+        await msg.answer(
+            "Использование:\n"
+            "/allow 123456789 — добавить по Telegram ID\n"
+            "/allow @username — добавить по нику (только если человек уже писал боту)\n\n"
+            "Попроси человека написать /start боту, тогда он появится автоматически. "
+            "Или пусть напишет @userinfobot — узнает свой ID."
+        )
         return
 
-    username = parts[1].lstrip("@")
+    target = parts[1].lstrip("@")
+    
+    # Пробуем по числовому ID
     try:
-        chat = await bot.get_chat("@" + username)
+        tg_id = int(target)
+        username = str(tg_id)
         r = await api({
             "action": "add_user",
-            "tg_id": chat.id,
+            "tg_id": tg_id,
             "tg_username": username,
             "display_name": ""
         })
         if r.get("status") == "already_exists":
-            await msg.answer(f"@{username} уже в списке.")
+            await msg.answer(f"✅ Пользователь {tg_id} уже в списке.")
         else:
-            await msg.answer(f"✅ @{username} добавлен. При /start бот попросит имя.")
+            await msg.answer(
+                f"✅ Пользователь {tg_id} добавлен!\n"
+                f"Пусть напишет /start боту — бот попросит имя."
+            )
+        return
+    except ValueError:
+        pass  # не число, пробуем по username
+    
+    # Пробуем по @username
+    try:
+        chat = await bot.get_chat("@" + target)
+        r = await api({
+            "action": "add_user",
+            "tg_id": chat.id,
+            "tg_username": target,
+            "display_name": ""
+        })
+        if r.get("status") == "already_exists":
+            await msg.answer(f"@{target} уже в списке.")
+        else:
+            await msg.answer(
+                f"✅ @{target} добавлен!\n"
+                f"Пусть напишет /start боту — бот попросит имя."
+            )
     except Exception as e:
-        await msg.answer(f"❌ Не могу найти @{username}.\nОшибка: {e}")
+        await msg.answer(
+            f"❌ Не могу найти @{target} — возможно человек ещё не писал боту.\n\n"
+            f"Попроси его узнать свой ID через @userinfobot и пришли тебе.\n"
+            f"Потом добавь командой: /allow 123456789"
+        )
 
-# ── /remove @username ──
+# ── /remove ID или @username ──
 @dp.message(Command("remove"))
 async def cmd_remove(msg: Message):
     if msg.from_user.id not in ADMIN_IDS:
         return
     parts = msg.text.split()
     if len(parts) < 2:
-        await msg.answer("Использование: /remove @username")
+        await msg.answer("Использование: /remove 123456789 или /remove @username")
         return
 
-    username = parts[1].lstrip("@")
+    target = parts[1].lstrip("@")
+    
+    # По числовому ID
     try:
-        chat = await bot.get_chat("@" + username)
+        tg_id = int(target)
+        await api({"action": "remove_user", "tg_id": tg_id})
+        await msg.answer(f"✅ Пользователь {tg_id} удалён.")
+        return
+    except ValueError:
+        pass
+    
+    # По username
+    try:
+        chat = await bot.get_chat("@" + target)
         await api({"action": "remove_user", "tg_id": chat.id})
-        await msg.answer(f"✅ @{username} удалён.")
+        await msg.answer(f"✅ @{target} удалён.")
     except Exception as e:
         await msg.answer(f"❌ Ошибка: {e}")
+
+# ── /help ──
+@dp.message(Command("help"))
+async def cmd_help(msg: Message):
+    if msg.from_user.id not in ADMIN_IDS:
+        return
+    await msg.answer(
+        "👑 Команды администратора:\n\n"
+        "/allow 123456789 — добавить пользователя по Telegram ID\n"
+        "/allow @username — добавить по нику (если писал боту)\n"
+        "/remove 123456789 — удалить пользователя\n"
+        "/list — список всех допущенных\n"
+        "/scores — таблица лидеров\n\n"
+        "💡 Как узнать ID пользователя:\n"
+        "Попроси написать @userinfobot — он пришлёт ID"
+    )
 
 # ── /list ──
 @dp.message(Command("list"))
