@@ -486,6 +486,7 @@ body::before{
   <div id="vc"></div>
   <div style="text-align:center;margin-top:28px">
     <button class="btn-ghost" onclick="restart()">↩ Начать заново</button>
+    <button class="btn-ghost" onclick="goHub()" style="margin-top:10px">← На главную</button>
   </div>
 </div>
 
@@ -682,6 +683,7 @@ function buildVerdict(){
   const pct=score/TOTAL;
 
   document.getElementById('sc').textContent=score+'/'+TOTAL;
+  saveScore(score, TOTAL, flaggedFalse.length);
 
   let speech;
   if(pct===1)       speech='Идеально. Ни одна улика не ускользнула. Дело закрыто.';
@@ -743,6 +745,29 @@ function mkVC(c,type){
     </div>
     <div class="vc-exp">${c.exp}</div>`;
   return d;
+}
+
+function goHub(){
+  window.location.href = 'hub.html';
+}
+
+async function saveScore(score, total, errors){
+  const nick = sessionStorage.getItem('arb_nick') || localStorage.getItem('arb_nick');
+  if(!nick) return;
+  try{
+    await fetch('https://script.google.com/macros/s/AKfycbz6G13Xj4LbiIcH00fsgMVxk2_6lydeaeDAzVQypHSQE5lV33GdjMG3F-_5fLQrxChs/exec', {
+      method:'POST',
+      body: JSON.stringify({
+        secret: 'arb2024secret',
+        action: 'add_score',
+        tg_id: 0,
+        display_name: nick,
+        game: 'case1',
+        score, total, errors,
+        time_sec: 0
+      })
+    });
+  } catch(e){ console.error('score save error', e); }
 }
 
 function restart(){

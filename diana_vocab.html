@@ -381,6 +381,7 @@ body::after{
     </div>
     <button class="btn" onclick="replayGame()">↩ Ещё раз</button>
     <button class="btn-ghost" onclick="goMenu()">Другой уровень</button>
+    <button class="btn-ghost" onclick="goHub()">← На главную</button>
   </div>
 </div>
 
@@ -649,8 +650,10 @@ function getTimeStr(){
 function finishGame(){
   clearInterval(timerInterval);
   const timeStr=getTimeStr();
+  const elapsed=Math.floor((Date.now()-startTime)/1000);
   const total=activePairs.length;
   const acc=Math.round(total/(total+errors)*100);
+  saveScore(currentLevel, acc, 100, errors, elapsed);
   setTimeout(()=>{
     switchScreen('s-finish');
     document.getElementById('fin-time').textContent=timeStr;
@@ -676,10 +679,31 @@ function showToast(msg,good=false){
   clearTimeout(toastT);toastT=setTimeout(()=>t.classList.remove('show'),1800);
 }
 
+function goHub(){
+  window.location.href = 'hub.html';
+}
+
 function switchScreen(id){
   document.querySelectorAll('.screen').forEach(s=>s.classList.remove('active'));
   document.getElementById(id).classList.add('active');
   window.scrollTo(0,0);
+}
+
+async function saveScore(game, score, total, errors, timeSec){
+  const nick = sessionStorage.getItem('arb_nick') || localStorage.getItem('arb_nick');
+  if(!nick) return;
+  try{
+    await fetch('https://script.google.com/macros/s/AKfycbz6G13Xj4LbiIcH00fsgMVxk2_6lydeaeDAzVQypHSQE5lV33GdjMG3F-_5fLQrxChs/exec', {
+      method:'POST',
+      body: JSON.stringify({
+        secret: 'arb2024secret',
+        action: 'add_score',
+        tg_id: 0,
+        display_name: nick,
+        game, score, total, errors, time_sec: timeSec
+      })
+    });
+  } catch(e){ console.error('score save error', e); }
 }
 </script>
 </body>
