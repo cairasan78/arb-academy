@@ -8,7 +8,7 @@ BOT_TOKEN = "8709959971:AAGZsyxJ3owx44uIAa5Y2NmbqSP0R-8vfTM"
 APPS_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbz6G13Xj4LbiIcH00fsgMVxk2_6lydeaeDAzVQypHSQE5lV33GdjMG3F-_5fLQrxChs/exec"
 SECRET = "arb2024secret"
 WEBAPP_URL = "https://cairasan78.github.io/arb-academy/hub.html"
-ADMIN_IDS = []  # вставь сюда свой Telegram ID, например [123456789]
+ADMIN_IDS = [699185612]
 
 bot = Bot(token=BOT_TOKEN)
 dp = Dispatcher()
@@ -21,6 +21,15 @@ async def api(action: dict):
 # ── /start ──
 @dp.message(Command("start"))
 async def cmd_start(msg: Message):
+    # Админ всегда имеет доступ — добавляем автоматически если нет
+    if msg.from_user.id in ADMIN_IDS:
+        await api({
+            "action": "add_user",
+            "tg_id": msg.from_user.id,
+            "tg_username": msg.from_user.username or "admin",
+            "display_name": msg.from_user.first_name or "Админ"
+        })
+    
     r = await api({"action": "check_user", "tg_id": msg.from_user.id})
     if not r.get("allowed"):
         await msg.answer("⛔️ Доступ закрыт. Обратись к администратору.")
