@@ -4,6 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Академия арбитража</title>
+<script src="https://telegram.org/js/telegram-web-app.js"></script>
 <style>
 @import url('https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,400;0,600;0,700;1,400&family=Crimson+Pro:ital,wght@0,400;0,600;1,400&family=DM+Mono:wght@400;500&display=swap');
 *{box-sizing:border-box;margin:0;padding:0}
@@ -293,17 +294,53 @@ html,body{
 const YUKIO_HREF = 'case1.html';
 const DIANA_HREF = 'diana_vocab.html';
 
-// ─── НИК (придёт из Telegram бота через sessionStorage) ───
+// ─── НИК через Telegram WebApp API ───
 function showGreeting(nick){
   const g = document.getElementById('greeting');
   g.textContent = nick;
   g.classList.add('show');
 }
 
-window.addEventListener('DOMContentLoaded', () => {
-  // Ник приходит от бота через sessionStorage
-  const nick = sessionStorage.getItem('arb_nick') || localStorage.getItem('arb_nick');
-  if(nick) showGreeting(nick);
+async function getNickFromSheet(tgId){
+  try {
+    const r = await fetch('https://script.google.com/macros/s/AKfycbz6G13Xj4LbiIcH00fsgMVxk2_6lydeaeDAzVQypHSQE5lV33GdjMG3F-_5fLQrxChs/exec', {
+      method: 'POST',
+      body: JSON.stringify({secret:'arb2024secret', action:'check_user', tg_id: tgId})
+    });
+    const data = await r.json();
+    if(data.ok && data.display_name) return data.display_name;
+  } catch(e){}
+  return null;
+}
+
+window.addEventListener('DOMContentLoaded', async () => {
+  let nick = null;
+  let tgId = null;
+
+  // Пробуем получить данные из Telegram WebApp
+  if(window.Telegram && window.Telegram.WebApp && window.Telegram.WebApp.initDataUnsafe){
+    const tg = window.Telegram.WebApp;
+    tg.ready();
+    const user = tg.initDataUnsafe.user;
+    if(user){
+      tgId = user.id;
+      // Ищем имя в таблице по tg_id
+      nick = await getNickFromSheet(tgId);
+      // Если не нашли — используем имя из Telegram
+      if(!nick) nick = user.first_name || user.username || null;
+    }
+  }
+
+  // Fallback — sessionStorage / localStorage
+  if(!nick) nick = sessionStorage.getItem('arb_nick') || localStorage.getItem('arb_nick');
+
+  if(nick){
+    localStorage.setItem('arb_nick', nick);
+    sessionStorage.setItem('arb_nick', nick);
+    showGreeting(nick);
+  }
+  if(tgId) sessionStorage.setItem('arb_tg_id', tgId);
+
   loadLeaderboard();
 });
 

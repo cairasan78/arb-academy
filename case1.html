@@ -4,6 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Юкио — Дело №001: Ночной слив</title>
+<script src="https://telegram.org/js/telegram-web-app.js"></script>
 <style>
 @import url('https://fonts.googleapis.com/css2?family=Crimson+Pro:ital,wght@0,400;0,600;1,400&family=DM+Mono:wght@400;500&display=swap');
 *{box-sizing:border-box;margin:0;padding:0}
@@ -753,6 +754,7 @@ function goHub(){
 
 async function saveScore(score, total, errors){
   const nick = sessionStorage.getItem('arb_nick') || localStorage.getItem('arb_nick');
+  const tgId = sessionStorage.getItem('arb_tg_id') || 0;
   if(!nick) return;
   try{
     await fetch('https://script.google.com/macros/s/AKfycbz6G13Xj4LbiIcH00fsgMVxk2_6lydeaeDAzVQypHSQE5lV33GdjMG3F-_5fLQrxChs/exec', {
@@ -760,7 +762,7 @@ async function saveScore(score, total, errors){
       body: JSON.stringify({
         secret: 'arb2024secret',
         action: 'add_score',
-        tg_id: 0,
+        tg_id: parseInt(tgId) || 0,
         display_name: nick,
         game: 'case1',
         score, total, errors,
