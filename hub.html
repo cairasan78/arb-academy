@@ -385,17 +385,16 @@ async function loadLeaderboard(){
       }
     });
 
-    // Лучшее время по метрикам и терминам (минимум среди 100%)
+    // Рекорд = сумма лучших времён за метрики + термины (только если оба на 100%)
     const sorted = Object.entries(players)
       .map(([name, s]) => {
         const caseScore = s.case1 || 0;
         const metricsScore = s.metrics ? s.metrics.score : 0;
         const termsScore = s.terms ? s.terms.score : 0;
-        // Лучшее время — минимальное среди идеальных результатов
-        const times = [];
-        if(s.metrics && s.metrics.score === 100 && s.metrics.time) times.push(s.metrics.time);
-        if(s.terms && s.terms.score === 100 && s.terms.time) times.push(s.terms.time);
-        const bestTime = times.length ? Math.min(...times) : null;
+        // Сумма времён только если оба на 100%
+        const mTime = s.metrics && s.metrics.score === 100 ? s.metrics.time : null;
+        const tTime = s.terms && s.terms.score === 100 ? s.terms.time : null;
+        const bestTime = (mTime && tTime) ? mTime + tTime : null;
         return {name, caseScore, metricsScore, termsScore, bestTime,
           total: caseScore + metricsScore + termsScore};
       })
